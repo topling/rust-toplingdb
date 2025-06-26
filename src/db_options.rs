@@ -3927,6 +3927,33 @@ impl ReadOptions {
             ffi::rocksdb_readoptions_set_iter_start_ts(self.inner, ptr, len);
         }
     }
+
+    // ToplingDB: this has no relevance to set_pin_data
+    // This is used for zero copy on get/multi_get by PinnableSlice,
+    // the data in PinnableSlice between start_pin & finish_pin is
+    // guaranteed to be valid.
+    pub fn start_pin(&mut self) {
+        unsafe {
+            ffi::rocksdb_readoptions_start_pin(self.inner);
+        }
+    }
+
+    // ToplingDB: this has no relevance to set_pin_data
+    // This is used for zero copy on get/multi_get by PinnableSlice
+    pub fn finish_pin(&mut self) {
+        unsafe {
+            ffi::rocksdb_readoptions_finish_pin(self.inner);
+        }
+    }
+
+    pub fn set_async_queue_depth(&mut self, depth: usize) {
+        unsafe {
+            ffi::rocksdb_readoptions_set_async_queue_depth(self.inner, depth);
+        }
+    }
+    pub fn get_async_queue_depth(&self) -> usize {
+        unsafe { ffi::rocksdb_readoptions_get_async_queue_depth(self.inner) }
+    }
 }
 
 impl Default for ReadOptions {
