@@ -159,12 +159,10 @@ unsafe fn CheckGetCF(
 }
 
 unsafe fn CheckIter(iter: *mut rocksdb_iterator_t, key: *const c_char, val: *const c_char) {
-    let mut len: size_t = 0;
-    let mut str: *const c_char;
-    str = rocksdb_iter_key(iter, &mut len);
-    CheckEqual(key, str, len);
-    str = rocksdb_iter_value(iter, &mut len);
-    CheckEqual(val, str, len);
+    let ki = rocksdb_iter_key_fast(iter);
+    CheckEqual(key, ki.data, ki.size);
+    let vi = rocksdb_iter_value_fast(iter);
+    CheckEqual(val, vi.data, vi.size);
 }
 
 // Callback from rocksdb_writebatch_iterate()

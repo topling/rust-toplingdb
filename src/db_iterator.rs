@@ -337,10 +337,8 @@ impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
         // Safety Note: This is safe as all methods that may invalidate the buffer returned
         // take `&mut self`, so borrow checker will prevent use of buffer after seek.
         unsafe {
-            let mut key_len: size_t = 0;
-            let key_len_ptr: *mut size_t = &mut key_len;
-            let key_ptr = ffi::rocksdb_iter_key(self.inner.as_ptr(), key_len_ptr);
-            slice::from_raw_parts(key_ptr as *const c_uchar, key_len)
+            let key = ffi::rocksdb_iter_key_fast(self.inner.as_ptr());
+            slice::from_raw_parts(key.data as *const c_uchar, key.size as usize)
         }
     }
 
@@ -349,10 +347,8 @@ impl<'a, D: DBAccess> DBRawIteratorWithThreadMode<'a, D> {
         // Safety Note: This is safe as all methods that may invalidate the buffer returned
         // take `&mut self`, so borrow checker will prevent use of buffer after seek.
         unsafe {
-            let mut val_len: size_t = 0;
-            let val_len_ptr: *mut size_t = &mut val_len;
-            let val_ptr = ffi::rocksdb_iter_value(self.inner.as_ptr(), val_len_ptr);
-            slice::from_raw_parts(val_ptr as *const c_uchar, val_len)
+            let val = ffi::rocksdb_iter_value_fast(self.inner.as_ptr());
+            slice::from_raw_parts(val.data as *const c_uchar, val.size as usize)
         }
     }
 }
