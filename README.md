@@ -35,6 +35,14 @@ cargo build
 cargo test db::test_side_plugin_repo # ToplingDB side_plugin_repo
 ```
 
+**Note**: If jemalloc is disabled, `TOPLING_DISABLE_JEMALLOC` must be defined
+when building topling-zip, this should be uncommon:
+```shell
+time DEFS='-DTOPLING_DISABLE_JEMALLOC' \
+     make -C librocksdb-sys/rocksdb/sideplugin/topling-zip pkg -j`nproc`
+sudo make -C librocksdb-sys/rocksdb/sideplugin/topling-zip install prefix=/usr
+```
+
 ## Compression Support
 
 By default, support for [Snappy](https://github.com/google/snappy),

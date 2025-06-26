@@ -237,6 +237,8 @@ fn build_rocksdb() {
 
     if cfg!(feature = "jemalloc") {
         config.define("WITH_JEMALLOC", "ON");
+    } else {
+        config.define("TOPLING_DISABLE_JEMALLOC", None);
     }
 
     #[cfg(feature = "io-uring")]
@@ -417,6 +419,10 @@ fn main() {
     println!("cargo:rustc-link-lib=dylib=terark-fsa-r");
     println!("cargo:rustc-link-lib=dylib=terark-core-r");
     println!("cargo:rustc-link-lib=dylib=curl");
+    println!("cargo:rustc-link-lib=dylib=snappy"); // always enabled
+    if cfg!(feature = "jemalloc") {
+        println!("cargo:rustc-link-lib=dylib=jemalloc");
+    }
 
     // Allow dependent crates to locate the sources and output directory of
     // this crate. Notably, this allows a dependent crate to locate the RocksDB
