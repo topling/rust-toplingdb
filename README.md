@@ -31,6 +31,7 @@ time make -C librocksdb-sys
 time make -C librocksdb-sys/rocksdb/sideplugin/topling-zip pkg -j`nproc`
 sudo make -C librocksdb-sys/rocksdb/sideplugin/topling-zip install prefix=/usr
 sudo yum install libcurl-devel # ToplingDB requires libcurl-devel
+sudo apt install libcurl4-openssl-dev # for ubuntu & debian
 cargo build
 cargo test db::test_side_plugin_repo # ToplingDB side_plugin_repo
 ```
