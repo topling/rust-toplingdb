@@ -2619,7 +2619,7 @@ impl SidePluginRepo {
             let mut cfmap = BTreeMap::new();
             let db = ffi_try!(ffi::side_plugin_repo_open(self.inner, &mut cfhandles, &mut num,));
             for i in 0..num {
-                let cfh = (*cfhandles).offset(i as isize);
+                let cfh = *cfhandles.offset(i as isize);
                 let mut namelen = 0; // ignored unused out param
                 let cname = ffi::rocksdb_column_family_handle_get_name(cfh, &mut namelen);
                 cfmap.insert(from_cstr(cname), ColumnFamily{inner: cfh});
