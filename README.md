@@ -27,7 +27,7 @@ compression submodules:
 
 ```shell
 git submodule update --init --recursive
-time make -C librocksdb-sys
+time make -C librocksdb-sys # add UPDATE_REPO=1 for update dep repo
 time make -C librocksdb-sys/rocksdb/sideplugin/topling-zip pkg -j`nproc`
 sudo make -C librocksdb-sys/rocksdb/sideplugin/topling-zip install prefix=/usr
 sudo yum install libcurl-devel # ToplingDB requires libcurl-devel
@@ -35,6 +35,8 @@ sudo apt install libcurl4-openssl-dev # for ubuntu & debian
 cargo build
 cargo test db::test_side_plugin_repo # ToplingDB side_plugin_repo
 ```
+
+**Note**: If the repo is updated later, use UPDATE_REPO=1 as above
 
 **Note**: If jemalloc is disabled, `TOPLING_DISABLE_JEMALLOC` must be defined
 when building topling-zip, this should be uncommon:
