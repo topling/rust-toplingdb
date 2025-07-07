@@ -1214,25 +1214,25 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         K: AsRef<[u8]> + 'a + ?Sized,
         I: IntoIterator<Item = &'a K>,
     {
-        let (ptr_keys, keys_sizes): (Vec<_>, Vec<_>) = keys
-            .into_iter()
+        let keys_iter = keys.into_iter();
+        let mut key_slice_vec = Vec::with_capacity(keys_iter.size_hint().0);
+        key_slice_vec.extend(keys_iter
             .map(|k| {
                 let k = k.as_ref();
-                (k.as_ptr() as *const c_char, k.len())
+                ffi::rocksdb_slice_t { data: k.as_ptr() as *const c_char, size: k.len() }
             })
-            .unzip();
+        );
 
-        let mut pinned_values = vec![ptr::null_mut(); ptr_keys.len()];
-        let mut errors = vec![ptr::null_mut(); ptr_keys.len()];
+        let mut pinned_values = vec![ptr::null_mut(); key_slice_vec.len()];
+        let mut errors = vec![ptr::null_mut(); key_slice_vec.len()];
 
         unsafe {
-            ffi::rocksdb_batched_multi_get_cf(
+            ffi::rocksdb_batched_multi_get_cf_fast(
                 self.inner.inner(),
                 readopts.inner,
                 cf.inner(),
-                ptr_keys.len(),
-                ptr_keys.as_ptr(),
-                keys_sizes.as_ptr(),
+                key_slice_vec.len(),
+                key_slice_vec.as_ptr(),
                 pinned_values.as_mut_ptr(),
                 errors.as_mut_ptr(),
                 sorted_input,
