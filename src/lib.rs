@@ -17,7 +17,7 @@
 //!
 //! # Examples
 //!
-//! ```
+//! ```no_run
 //! use rocksdb::{DB, SidePluginRepo};
 //! // NB: repo and db automatically closed at end of lifetime
 //! {
@@ -36,25 +36,26 @@
 //!
 //! Opening a database and a single column family with custom options in rust:
 //!
-//! ```
-//! use rocksdb::{DB, ColumnFamilyDescriptor, Options};
+//! ```no_run
+//! use rocksdb::{Options, SidePluginRepo};
 //!
-//! let repo = SidePluginRepo::new("config.yaml").unwrap();
+//! let repo = SidePluginRepo::new();
+//! repo.import_auto_file("config.yaml").unwrap();
 //!
 //! // options should be set in config.yaml, this code snippet is for work
 //! // with existing config
-//! let mut cf_opts = repo.get_cf_options("default"); // default cf
+//! let mut cf_opts = repo.get_cfo("default").unwrap(); // default cf
 //! cf_opts.set_max_write_buffer_number(16);
-//! repo.put_cf_options("default", cf_opts);
-//! repo.put_cf_options("cf1", cf_opts); // cf1 use same options as default
+//! repo.put_cfo("default", &cf_opts);
+//! repo.put_cfo("cf1", &cf_opts); // cf1 use same options as default
 //!
-//! let mut db_opts = repo.get_db_options("db_option_name");
+//! let mut db_opts = repo.get_dbo("db_option_name").unwrap();
 //! db_opts.create_missing_column_families(true);
 //! db_opts.create_if_missing(true);
-//! repo.put_db_options("db_option_name", db_opts);
+//! repo.put_dbo("db_option_name", &db_opts);
 //! {
-//!     let db = repo.open_with_cf().unwrap();
-//!     // db.cfs is BTreeMap<String, ColumnFamily> which holds CF
+//!     let db = repo.open_cf().unwrap();
+//!     // db.cf_handle("default") returns Option<&ColumnFamily>; use cf_handle to access CFs
 //! }
 //! ```
 //!

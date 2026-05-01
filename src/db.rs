@@ -2663,11 +2663,11 @@ impl SidePluginRepo {
         }
     }
 
-    pub fn put_dbo(&self, name: &str, cfo: &Options) {
+    pub fn put_dbo(&self, name: &str, dbo: &Options) {
         let tmp = CString::new(name).unwrap();
         let cname = tmp.as_ptr();
         unsafe {
-            ffi::side_plugin_repo_put_db_options(self.inner, cname, cfo.inner);
+            ffi::side_plugin_repo_put_db_options(self.inner, cname, dbo.inner);
         }
     }
 
