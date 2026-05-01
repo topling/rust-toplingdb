@@ -2606,6 +2606,15 @@ impl SidePluginRepo {
         }
     }
 
+    pub fn import(&self, json_str: &str) -> Result<(), Error> {
+        let cjson = std::ffi::CString::new(json_str)
+            .map_err(|_| Error::new("json_str contains null byte".to_owned()))?;
+        unsafe {
+            ffi_try!(ffi::side_plugin_repo_import(self.inner, cjson.as_ptr(),));
+            Ok(())
+        }
+    }
+
     pub fn open(&self) -> Result<DB, Error> {
         unsafe {
             let db = ffi_try!(ffi::side_plugin_repo_open(
