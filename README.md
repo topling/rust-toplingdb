@@ -27,9 +27,6 @@ compression submodules:
 
 ```shell
 git submodule update --init --recursive
-time make -C librocksdb-sys # add UPDATE_REPO=1 for update dep repo
-time make -C librocksdb-sys/rocksdb/sideplugin/topling-zip pkg -j`nproc`
-sudo make -C librocksdb-sys/rocksdb/sideplugin/topling-zip install prefix=/usr
 sudo yum install libcurl-devel # ToplingDB requires libcurl-devel
 sudo apt install libcurl4-openssl-dev # for ubuntu & debian
 cargo build
@@ -38,13 +35,45 @@ cargo test db::test_side_plugin_repo # ToplingDB side_plugin_repo
 
 **Note**: If the repo is updated later, use UPDATE_REPO=1 as above
 
-**Note**: If jemalloc is disabled, `TOPLING_DISABLE_JEMALLOC` must be defined
-when building topling-zip, this should be uncommon:
+
+## Jemalloc Control
+
+ToplingDB uses jemalloc as the default memory allocator. The RocksDB C++ library
+(`librocksdb.so`) is built with jemalloc, and the Rust side links jemalloc to
+ensure allocator consistency.
+
+### Disable jemalloc
+
+The `jemalloc` Cargo feature is enabled by default. To disable it:
+
 ```shell
-time DEFS='-DTOPLING_DISABLE_JEMALLOC' \
-     make -C librocksdb-sys/rocksdb/sideplugin/topling-zip pkg -j`nproc`
-sudo make -C librocksdb-sys/rocksdb/sideplugin/topling-zip install prefix=/usr
+cargo build --no-default-features
 ```
+
+Or in your `Cargo.toml`:
+
+```toml
+[dependencies.rocksdb]
+default-features = false
+```
+
+**Note**: Switching jemalloc on/off changes how `librocksdb.so` is compiled. Run
+`make -C librocksdb-sys/rocksdb clean` before rebuilding to ensure the C++
+library picks up the new setting.
+
+### Consistency check
+
+If the `DISABLE_JEMALLOC` environment variable is set, build.rs verifies it
+matches the Cargo feature to prevent inconsistency:
+
+| `DISABLE_JEMALLOC` | feature `jemalloc` | Result |
+|---|---|---|
+| (unset) | enabled (default) | ✅ jemalloc enabled |
+| (unset) | disabled | ✅ jemalloc disabled |
+| `1` | disabled | ✅ jemalloc disabled |
+| `0` | enabled | ✅ jemalloc enabled |
+| `1` | enabled | ❌ compile error |
+| `0` | disabled | ❌ compile error |
 
 ## Compression Support
 

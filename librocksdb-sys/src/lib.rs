@@ -17,14 +17,7 @@
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
 
-// Ensure the libraries are linked in, despite it not being used directly
-#[cfg(feature = "bzip2")]
-extern crate bzip2_sys;
-#[cfg(feature = "zlib")]
-extern crate libz_sys;
-#[cfg(feature = "lz4")]
-extern crate lz4_sys;
-#[cfg(feature = "zstd")]
-extern crate zstd_sys;
+// Note: compression libraries (snappy, lz4, zstd, zlib, bzip2) are
+// baked into librocksdb.so and linked automatically.
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));

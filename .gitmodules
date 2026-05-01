@@ -1,6 +1,3 @@
-[submodule "rocksdb_sys/snappy"]
-	path = librocksdb-sys/snappy
-	url = https://github.com/google/snappy.git
 [submodule "rocksdb_sys/rocksdb"]
 	path = librocksdb-sys/rocksdb
 	url = https://github.com/topling/toplingdb.git
