@@ -2586,8 +2586,11 @@ pub(crate) fn convert_values(
         .collect()
 }
 
+/// They back rockside YAML and are required for scenarios such as **distributed compaction**
+/// when the user supplies custom plugins: every participating process must register the same
+/// factories before opening or importing config.
 pub struct SidePluginRepo {
-    inner: *mut ffi::side_plugin_repo_t,
+    pub(crate) inner: *mut ffi::side_plugin_repo_t,
 }
 
 // SAFETY: ToplingDB C++ side handles all thread safety for the repo object.
@@ -2665,6 +2668,14 @@ impl SidePluginRepo {
     pub fn close_http(&self) {
         unsafe {
             ffi::side_plugin_repo_close_http(self.inner);
+        }
+    }
+
+    /// Forget a DB opened via this repo, keeping the DB handle alive.
+    /// After calling this, closing the repo will not close the DB.
+    pub fn forget_db(&self, db: &impl DBInner) {
+        unsafe {
+            ffi::side_plugin_repo_forget_db(self.inner, db.inner());
         }
     }
 
