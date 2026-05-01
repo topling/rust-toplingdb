@@ -1,2 +1,4 @@
 [toolchain]
-channel = "1.71.1"
+# Pinned to match upstream rust-rocksdb (https://github.com/rust-rocksdb/rust-rocksdb)
+# so we share the same lint surface and MSRV behavior.
+channel = "1.85.0"
