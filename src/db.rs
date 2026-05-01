@@ -2589,6 +2589,11 @@ pub(crate) fn convert_values(
 pub struct SidePluginRepo {
     inner: *mut ffi::side_plugin_repo_t,
 }
+
+// SAFETY: ToplingDB C++ side handles all thread safety for the repo object.
+unsafe impl Send for SidePluginRepo {}
+unsafe impl Sync for SidePluginRepo {}
+
 impl SidePluginRepo {
     pub fn new() -> SidePluginRepo {
         unsafe { Self{inner: ffi::side_plugin_repo_create()} }
@@ -2616,8 +2621,12 @@ impl SidePluginRepo {
                 self.inner, std::ptr::null_mut(), std::ptr::null_mut(),));
             let dbpath_str = from_cstr(ffi::rocksdb_get_name(db));
             let dbpath = Path::new(&dbpath_str);
+            #[cfg(not(feature = "multi-threaded-cf"))]
+            let cfs = SingleThreaded::new_cf_map_internal(BTreeMap::new());
+            #[cfg(feature = "multi-threaded-cf")]
+            let cfs = MultiThreaded::new_cf_map_internal(BTreeMap::new());
             Ok(DB{inner: DBWithThreadModeInner{inner: db}, _outlive: vec![],
-                  cfs: SingleThreaded{cfs: BTreeMap::new()}, path: dbpath.to_path_buf()})
+                  cfs, path: dbpath.to_path_buf()})
         }
     }
 
@@ -2631,15 +2640,19 @@ impl SidePluginRepo {
                 let cfh = *cfhandles.offset(i as isize);
                 let mut namelen = 0; // ignored unused out param
                 let cname = ffi::rocksdb_column_family_handle_get_name(cfh, &mut namelen);
-                cfmap.insert(from_cstr(cname), ColumnFamily{inner: cfh});
+                cfmap.insert(from_cstr(cname), cfh);
                 libc::free(cname as *mut c_void);
             }
             libc::free(cfhandles as *mut c_void); // was new T*[num] in C api
             // not need free for rocksdb_get_name
             let dbpath_str = from_cstr(ffi::rocksdb_get_name(db));
             let dbpath = Path::new(&dbpath_str);
+            #[cfg(not(feature = "multi-threaded-cf"))]
+            let cfs = SingleThreaded::new_cf_map_internal(cfmap);
+            #[cfg(feature = "multi-threaded-cf")]
+            let cfs = MultiThreaded::new_cf_map_internal(cfmap);
             Ok(DB{inner: DBWithThreadModeInner{inner: db}, _outlive: vec![],
-                  cfs: SingleThreaded{ cfs : cfmap}, path: dbpath.to_path_buf()})
+                  cfs, path: dbpath.to_path_buf()})
         }
     }
 
