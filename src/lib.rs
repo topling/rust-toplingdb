@@ -141,6 +141,7 @@ pub mod merge_operator;
 pub mod perf;
 mod prop_name;
 pub mod properties;
+pub mod side_plugin_ex;
 mod slice_transform;
 mod snapshot;
 mod sst_file_writer;
@@ -204,6 +205,13 @@ pub mod ffi {
 
 use std::error;
 use std::fmt;
+
+#[doc(hidden)]
+pub use inventory;
+#[doc(hidden)]
+pub use paste;
+#[doc(hidden)]
+pub use serde_json;
 
 /// RocksDB error kind.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -287,6 +295,206 @@ impl fmt::Display for Error {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         self.message.fmt(formatter)
     }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// side_plugin! macro — register a ToplingDB side plugin
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// Registers a creator function for a ToplingDB side plugin.
+// Registration happens automatically before `main()` via `ctor` + `inventory`.
+//
+// # Usage
+//
+// ```ignore
+// use rocksdb::side_plugin;
+// use std::ffi::CString;
+//
+// fn my_comp_create(json: serde_json::Value, _repo: &rocksdb::SidePluginRepo)
+//     -> rocksdb::ComparatorCallback
+// {
+//     rocksdb::side_plugin_ex::make_comparator_callback(
+//         CString::new("my-comp").unwrap(),
+//         Box::new(|a: &[u8], b: &[u8]| a.cmp(b)),
+//     )
+// }
+// side_plugin!(comparator, "my-comp", my_comp_create);
+// ```
+//
+// # Plugin types and return types
+//
+// | Kind                      | Return type                            |
+// |---------------------------|----------------------------------------|
+// | `comparator`              | `ComparatorCallback`                   |
+// | `merge_operator`          | `MergeOperatorCallback<impl MergeFn, impl MergeFn>` |
+// | `compaction_filter_factory` | `impl CompactionFilterFactory`      |
+// | `slice_transform`         | `SliceTransform`                       |
+//
+// # `ctor` / `inventory` requirements
+//
+// This macro uses `inventory::submit!` and requires `#[ctor::ctor]` to be
+// linked (provided by the `rocksdb` crate). Plugins are automatically
+// registered during static initialization, before `main()`.
+// No explicit registration call is needed at runtime.
+//
+/// Internal helper: generates the thunk, register fn, `&'static CStr`, and
+/// `inventory::submit!`.  Called once per plugin kind from the four `side_plugin!`
+/// arms — the only differences are the 6 token parameters below.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __side_plugin__impl {
+    (
+        $ret_type:ty,
+        $json_tag:literal,
+        $converter:path,
+        $register_fn:path,
+        $entry_type:path,
+        $name:expr,
+        $func:ident,
+    ) => {
+        unsafe extern "C" fn __thunk(
+            strjson: *const ::std::os::raw::c_char,
+            repo_ptr: *const $crate::ffi::side_plugin_repo_t,
+        ) -> $ret_type {
+            let json_str = unsafe {
+                ::std::ffi::CStr::from_ptr(strjson)
+            }.to_str().expect(concat!("side_plugin(", $json_tag, "): invalid UTF-8"));
+            let json: $crate::serde_json::Value =
+                $crate::serde_json::from_str(json_str)
+                    .expect(concat!("side_plugin(", $json_tag, "): invalid JSON"));
+            let repo = ::std::mem::ManuallyDrop::new($crate::SidePluginRepo::from_raw_ptr(
+                repo_ptr as *mut $crate::ffi::side_plugin_repo_t,
+            ));
+            let result = super::$func(json, &repo);
+            $converter(result)
+        }
+
+        fn __register(name: &'static ::std::ffi::CStr) {
+            unsafe {
+                $register_fn(
+                    name.as_ptr(),
+                    ::std::option::Option::Some(__thunk),
+                    ::std::ptr::null(),
+                );
+            }
+        }
+
+        // Compile-time &'static CStr: concat! guarantees the trailing \0,
+        // and plugin names are short ASCII strings with no interior nuls.
+        const __PLUGIN_NAME: &::std::ffi::CStr = unsafe {
+            ::std::ffi::CStr::from_bytes_with_nul_unchecked(concat!($name, "\0").as_bytes())
+        };
+
+        $crate::inventory::submit! {
+            $entry_type {
+                name: __PLUGIN_NAME,
+                register: __register,
+            }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! side_plugin {
+    // ═══════════════════════════════════════════════════════════════════════
+    // Comparator
+    // ═══════════════════════════════════════════════════════════════════════
+    (comparator, $func:ident) => {
+        $crate::side_plugin!(comparator, stringify!($func), $func);
+    };
+    (comparator, $name:expr, $func:ident) => {
+        $crate::paste::paste! {
+            #[allow(non_camel_case_types, non_snake_case)]
+            mod [< __rocksdb_side_plugin_comparator_ $func >] {
+                #[allow(unused_imports)]
+                use super::*;
+                $crate::__side_plugin__impl! {
+                    *const $crate::ffi::rocksdb_comparator_t,
+                    "comparator",
+                    $crate::side_plugin_ex::create_comparator_c_object,
+                    $crate::ffi::side_plugin_register_comparator,
+                    $crate::side_plugin_ex::CompPluginEntry,
+                    $name,
+                    $func,
+                }
+            }
+        }
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // MergeOperator
+    // ═══════════════════════════════════════════════════════════════════════
+    (merge_operator, $func:ident) => {
+        $crate::side_plugin!(merge_operator, stringify!($func), $func);
+    };
+    (merge_operator, $name:expr, $func:ident) => {
+        $crate::paste::paste! {
+            #[allow(non_camel_case_types, non_snake_case)]
+            mod [< __rocksdb_side_plugin_merge_ $func >] {
+                #[allow(unused_imports)]
+                use super::*;
+                $crate::__side_plugin__impl! {
+                    *mut $crate::ffi::rocksdb_mergeoperator_t,
+                    "merge_operator",
+                    $crate::side_plugin_ex::create_merge_op_c_object,
+                    $crate::ffi::side_plugin_register_merge_operator,
+                    $crate::side_plugin_ex::MergePluginEntry,
+                    $name,
+                    $func,
+                }
+            }
+        }
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // CompactionFilterFactory
+    // ═══════════════════════════════════════════════════════════════════════
+    (compaction_filter_factory, $func:ident) => {
+        $crate::side_plugin!(compaction_filter_factory, stringify!($func), $func);
+    };
+    (compaction_filter_factory, $name:expr, $func:ident) => {
+        $crate::paste::paste! {
+            #[allow(non_camel_case_types, non_snake_case)]
+            mod [< __rocksdb_side_plugin_cff_ $func >] {
+                #[allow(unused_imports)]
+                use super::*;
+                $crate::__side_plugin__impl! {
+                    *mut $crate::ffi::rocksdb_compactionfilterfactory_t,
+                    "cff",
+                    $crate::side_plugin_ex::create_cff_c_object,
+                    $crate::ffi::side_plugin_register_compaction_filter_factory,
+                    $crate::side_plugin_ex::CompFilterFactoryPluginEntry,
+                    $name,
+                    $func,
+                }
+            }
+        }
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SliceTransform
+    // ═══════════════════════════════════════════════════════════════════════
+    (slice_transform, $func:ident) => {
+        $crate::side_plugin!(slice_transform, stringify!($func), $func);
+    };
+    (slice_transform, $name:expr, $func:ident) => {
+        $crate::paste::paste! {
+            #[allow(non_camel_case_types, non_snake_case)]
+            mod [< __rocksdb_side_plugin_xform_ $func >] {
+                #[allow(unused_imports)]
+                use super::*;
+                $crate::__side_plugin__impl! {
+                    *mut $crate::ffi::rocksdb_slicetransform_t,
+                    "slice_transform",
+                    $crate::side_plugin_ex::create_slice_transform_c_object,
+                    $crate::ffi::side_plugin_register_slicetransform,
+                    $crate::side_plugin_ex::SliceTransformPluginEntry,
+                    $name,
+                    $func,
+                }
+            }
+        }
+    };
 }
 
 #[cfg(test)]
