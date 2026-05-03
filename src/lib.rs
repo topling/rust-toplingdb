@@ -187,7 +187,20 @@ pub use crate::{
     write_batch::{WriteBatch, WriteBatchIterator, WriteBatchWithTransaction},
 };
 
-use librocksdb_sys as ffi;
+pub mod ffi {
+    pub use librocksdb_sys::{
+        side_plugin_repo_t,
+        rocksdb_comparator_t,
+        rocksdb_mergeoperator_t,
+        rocksdb_compactionfilterfactory_t,
+        rocksdb_slicetransform_t,
+        side_plugin_register_comparator,
+        side_plugin_register_merge_operator,
+        side_plugin_register_compaction_filter_factory,
+        side_plugin_register_slicetransform,
+    };
+    pub(crate) use librocksdb_sys::*;
+}
 
 use std::error;
 use std::fmt;
