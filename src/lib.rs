@@ -362,9 +362,9 @@ macro_rules! __side_plugin__impl {
                 $crate::serde_json::from_str(json_str)
                     .expect(concat!("side_plugin(", $json_tag, "): invalid JSON"));
             let repo = ::std::mem::ManuallyDrop::new(
-                $crate::SidePluginRepo {
-                    inner: repo_ptr as *mut $crate::ffi::side_plugin_repo_t,
-                }
+                $crate::SidePluginRepo::from_raw_ptr(
+                    repo_ptr as *mut $crate::ffi::side_plugin_repo_t,
+                )
             );
             let result = super::$func(json, &repo);
             $converter(result)
