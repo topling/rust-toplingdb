@@ -2594,6 +2594,15 @@ pub struct SidePluginRepo {
 unsafe impl Send for SidePluginRepo {}
 unsafe impl Sync for SidePluginRepo {}
 
+impl std::fmt::Debug for SidePluginRepo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SidePluginRepo")
+            .field("type", &"side_plugin_repo_t")
+            .field("inner", &self.inner)
+            .finish()
+    }
+}
+
 impl SidePluginRepo {
     pub fn new() -> SidePluginRepo {
         unsafe { Self{inner: ffi::side_plugin_repo_create()} }
