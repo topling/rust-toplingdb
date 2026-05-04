@@ -2724,6 +2724,22 @@ impl SidePluginRepo {
             Ok(Options{inner: opt, outlive: OptionsMustOutliveDB::default()})
         }
     }
+
+    /// Update `opts` (db options) from the named side plugin entry.
+    pub fn db_options_update_from(&self, opts: &mut Options, name: &str) {
+        let tmp = CString::new(name).unwrap();
+        unsafe {
+            ffi::side_plugin_db_options_update_from(opts.inner, self.inner, tmp.as_ptr());
+        }
+    }
+
+    /// Update `opts` (column family options) from the named side plugin entry.
+    pub fn cf_options_update_from(&self, opts: &mut Options, name: &str) {
+        let tmp = CString::new(name).unwrap();
+        unsafe {
+            ffi::side_plugin_cf_options_update_from(opts.inner, self.inner, tmp.as_ptr());
+        }
+    }
 }
 
 impl Drop for SidePluginRepo {
