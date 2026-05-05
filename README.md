@@ -66,21 +66,44 @@ The `tikv-jemalloc-sys` `unprefixed_malloc_on_supported_platforms` feature is
 recommended so that jemalloc's `malloc`/`free` interpose libc's and are visible
 to `librocksdb.so` at runtime.
 
-## Compression Support
+## Cargo Features
 
-By default, support for [Snappy](https://github.com/google/snappy),
+### Default features
+
+Default features are empty. No jemalloc, no compression features are enabled by
+default — you must opt in to each explicitly (see below).
+
+### Compression support
+
+Support for [Snappy](https://github.com/google/snappy),
 [LZ4](https://github.com/lz4/lz4), [Zstd](https://github.com/facebook/zstd),
 [Zlib](https://zlib.net), and [Bzip2](http://www.bzip.org) compression
-is enabled through crate features. If support for all of these compression
-algorithms is not needed, default features can be disabled and specific
-compression algorithms can be enabled. For example, to enable only LZ4
-compression support, make these changes to your Cargo.toml:
+is enabled through individual crate features. For example:
 
 ```toml
 [dependencies.rocksdb]
 default-features = false
-features = ["lz4"]
+features = ["lz4", "snappy"]
 ```
+
+### Top-level features
+
+| Feature | Description |
+|---|---|
+| `rtti` | Enable RTTI in librocksdb (propagated to `librocksdb-sys/rtti`) |
+| `multi-threaded-cf` | Allow column family create/drop from multiple threads concurrently |
+| `serde1` | Implement `Serialize`/`Deserialize` for public types |
+| `valgrind` | Enable Valgrind-friendly options |
+| `io-uring` | Enable `io_uring` support in librocksdb (no longer needed, baked into librocksdb.so) |
+
+### librocksdb-sys features
+
+| Feature | Description |
+|---|---|
+| `static` | **Deprecated.** Static linking is no longer supported, librocksdb is always linked dynamically |
+| `mt_static` | On Windows, use `/MT` (static CRT) instead of `/MD` (dynamic CRT) |
+| `io-uring` | **Deprecated.** `io_uring` is baked into librocksdb.so |
+| `rtti` | Enable RTTI when building librocksdb |
 
 ## Multithreaded ColumnFamily alternation
 
