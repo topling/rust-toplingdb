@@ -32,9 +32,11 @@ fn main() {
             .ok()
             .and_then(|s| s.parse().ok())
             .unwrap_or_else(num_cpus::get);
+        let update_repo = env::var("UPDATE_REPO").unwrap_or_else(|_| "0".into());
+        println!("cargo:rerun-if-env-changed=UPDATE_REPO");
         let status = Command::new("make")
             .current_dir("rocksdb")
-            .args(["shared_lib", "UPDATE_REPO=0", "LIB_MODE=shared", &format!("DEBUG_LEVEL={debug_level}"), "USE_LTO=1", &format!("-j{num_jobs}")])
+            .args(["shared_lib", &format!("UPDATE_REPO={update_repo}"), "LIB_MODE=shared", &format!("DEBUG_LEVEL={debug_level}"), "USE_LTO=1", &format!("-j{num_jobs}")])
             .env("DISABLE_JEMALLOC", "1")
             .status()
             .expect("failed to run 'make shared_lib' for rocksdb");
