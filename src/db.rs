@@ -2671,6 +2671,14 @@ impl SidePluginRepo {
         }
     }
 
+    /// Forget a DB opened via this repo, keeping the DB handle alive.
+    /// After calling this, closing the repo will not close the DB.
+    pub fn forget_db(&self, db: &impl DBInner) {
+        unsafe {
+            ffi::side_plugin_repo_forget_db(self.inner, db.inner());
+        }
+    }
+
     pub fn put_cfo(&self, name: &str, cfo: &Options) {
         let tmp = CString::new(name).unwrap();
         let cname = tmp.as_ptr();
