@@ -36,44 +36,35 @@ cargo test db::test_side_plugin_repo # ToplingDB side_plugin_repo
 **Note**: If the repo is updated later, use UPDATE_REPO=1 as above
 
 
-## Jemalloc Control
+## Jemalloc
 
-ToplingDB uses jemalloc as the default memory allocator. The RocksDB C++ library
-(`librocksdb.so`) is built with jemalloc, and the Rust side links jemalloc to
-ensure allocator consistency.
+`librocksdb.so` is built **without** jemalloc (`DISABLE_JEMALLOC=1`). Its
+`malloc`/`free` calls resolve at runtime through ELF symbol interposition.
 
-### Disable jemalloc
+This design avoids the crash that occurs when two jemalloc instances coexist in
+the same process (e.g., if the outer Rust application statically links jemalloc
+via `tikv-jemalloc-sys`). There is no jemalloc Cargo feature on this crate.
 
-The `jemalloc` Cargo feature is enabled by default. To disable it:
+### Using jemalloc in your application
 
-```shell
-cargo build --no-default-features
-```
-
-Or in your `Cargo.toml`:
+To use jemalloc as the global allocator, add it to your own `Cargo.toml`:
 
 ```toml
-[dependencies.rocksdb]
-default-features = false
+[dependencies]
+tikv-jemallocator = "0.5"
 ```
 
-**Note**: Switching jemalloc on/off changes how `librocksdb.so` is compiled. Run
-`make -C librocksdb-sys/rocksdb clean` before rebuilding to ensure the C++
-library picks up the new setting.
+Then in your `src/main.rs`:
 
-### Consistency check
+```rust
+use tikv_jemallocator::Jemalloc;
+#[global_allocator]
+static GLOBAL: Jemalloc = Jemalloc;
+```
 
-If the `DISABLE_JEMALLOC` environment variable is set, build.rs verifies it
-matches the Cargo feature to prevent inconsistency:
-
-| `DISABLE_JEMALLOC` | feature `jemalloc` | Result |
-|---|---|---|
-| (unset) | enabled (default) | ✅ jemalloc enabled |
-| (unset) | disabled | ✅ jemalloc disabled |
-| `1` | disabled | ✅ jemalloc disabled |
-| `0` | enabled | ✅ jemalloc enabled |
-| `1` | enabled | ❌ compile error |
-| `0` | disabled | ❌ compile error |
+The `tikv-jemalloc-sys` `unprefixed_malloc_on_supported_platforms` feature is
+recommended so that jemalloc's `malloc`/`free` interpose libc's and are visible
+to `librocksdb.so` at runtime.
 
 ## Compression Support
 
