@@ -5,7 +5,8 @@ use std::process::Command;
 
 fn main() {
     // Generate Rust FFI bindings from rocksdb C header
-    let rocksdb_include = env::var("ROCKSDB_INCLUDE_DIR").unwrap_or_else(|_| "rocksdb/include".into());
+    let rocksdb_include =
+        env::var("ROCKSDB_INCLUDE_DIR").unwrap_or_else(|_| "rocksdb/include".into());
     let bindings = bindgen::Builder::default()
         .header(format!("{rocksdb_include}/rocksdb/c.h"))
         .derive_debug(false)
@@ -32,14 +33,25 @@ fn main() {
             .ok()
             .and_then(|s| s.parse().ok())
             .unwrap_or_else(num_cpus::get);
+        let update_repo = env::var("UPDATE_REPO").unwrap_or_else(|_| "0".into());
+        println!("cargo:rerun-if-env-changed=UPDATE_REPO");
         let status = Command::new("make")
             .current_dir("rocksdb")
-            .args(["shared_lib", "UPDATE_REPO=0", "LIB_MODE=shared", &format!("DEBUG_LEVEL={debug_level}"), "USE_LTO=1", &format!("-j{num_jobs}")])
+            .args([
+                "shared_lib",
+                &format!("UPDATE_REPO={update_repo}"),
+                "LIB_MODE=shared",
+                &format!("DEBUG_LEVEL={debug_level}"),
+                "USE_LTO=1",
+                &format!("-j{num_jobs}"),
+            ])
             .env("DISABLE_JEMALLOC", "1")
             .status()
             .expect("failed to run 'make shared_lib' for rocksdb");
         assert!(status.success(), "'make shared_lib' failed");
-        env::var("CARGO_MANIFEST_DIR").map(|d| PathBuf::from(d).join("rocksdb")).unwrap()
+        env::var("CARGO_MANIFEST_DIR")
+            .map(|d| PathBuf::from(d).join("rocksdb"))
+            .unwrap()
     };
 
     // Copy librocksdb.so* to the cargo deps output directory (target/{profile}/deps/)
@@ -50,7 +62,12 @@ fn main() {
         let entry = entry.unwrap();
         let name = entry.file_name();
         let name_str = name.to_string_lossy();
-        if name_str.starts_with("librocksdb.so") && (entry.file_type().map(|t| t.is_file() || t.is_symlink()).unwrap_or(false)) {
+        if name_str.starts_with("librocksdb.so")
+            && (entry
+                .file_type()
+                .map(|t| t.is_file() || t.is_symlink())
+                .unwrap_or(false))
+        {
             let dest = target_deps.join(&name);
             let _ = fs::remove_file(&dest);
             if entry.file_type().map(|t| t.is_symlink()).unwrap_or(false) {
@@ -62,7 +79,10 @@ fn main() {
         }
     }
 
-    println!("cargo:rustc-link-search=native={}", rocksdb_lib_dir.display());
+    println!(
+        "cargo:rustc-link-search=native={}",
+        rocksdb_lib_dir.display()
+    );
     println!("cargo:rustc-link-lib=dylib=rocksdb");
 
     // Link C++ runtime (librocksdb.so is a C++ library)
