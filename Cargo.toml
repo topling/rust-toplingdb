@@ -21,8 +21,7 @@ exclude = [
 members = ["librocksdb-sys"]
 
 [features]
-default = ["jemalloc"]
-jemalloc = ["librocksdb-sys/jemalloc"]
+default = []
 valgrind = []
 rtti = ["librocksdb-sys/rtti"]
 multi-threaded-cf = []

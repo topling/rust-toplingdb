@@ -13,19 +13,14 @@ categories = [ "api-bindings", "database", "external-ffi-bindings" ]
 links = "rocksdb"
 
 [features]
-default = [ "jemalloc" ]
-jemalloc = ["tikv-jemalloc-sys"]
-# deprecated: linking is always dynamic now
+default = []
 static = []
-# deprecated: no longer relevant
 mt_static = []
-# deprecated: io-uring is baked into librocksdb.so
 io-uring = []
 rtti = []
 
 [dependencies]
 libc = "0.2"
-tikv-jemalloc-sys = { version = "0.5", features = ["unprefixed_malloc_on_supported_platforms"], optional = true }
 
 [dev-dependencies]
 uuid = { version = "1.0", features = ["v4"] }
