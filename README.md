@@ -1,29 +1,30 @@
-# rust-rocksdb
+# rust-toplingdb
 
-[![RocksDB build](https://github.com/rust-rocksdb/rust-rocksdb/actions/workflows/rust.yml/badge.svg?branch=master)](https://github.com/rust-rocksdb/rust-rocksdb/actions/workflows/rust.yml)
-[![crates.io](https://img.shields.io/crates/v/rocksdb.svg)](https://crates.io/crates/rocksdb)
-[![documentation](https://docs.rs/rocksdb/badge.svg)](https://docs.rs/rocksdb)
-[![license](https://img.shields.io/crates/l/rocksdb.svg)](https://github.com/rust-rocksdb/rust-rocksdb/blob/master/LICENSE)
-[![Gitter chat](https://badges.gitter.im/rust-rocksdb/gitter.svg)](https://gitter.im/rust-rocksdb/lobby)
-![rust 1.70.0 required](https://img.shields.io/badge/rust-1.70.0-blue.svg?label=MSRV)
+[![ToplingDB build](https://github.com/topling/rust-toplingdb/actions/workflows/rust.yml/badge.svg?branch=master)](https://github.com/topling/rust-toplingdb/actions/workflows/rust.yml)
+[![license](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/topling/rust-toplingdb/blob/master/LICENSE)
+![rust 1.85 required](https://img.shields.io/badge/rust-1.85-blue.svg?label=MSRV)
 
-![GitHub commits (since latest release)](https://img.shields.io/github/commits-since/rust-rocksdb/rust-rocksdb/latest.svg)
+ToplingDB Rust binding. Forked from
+[rust-rocksdb](https://github.com/rust-rocksdb/rust-rocksdb).
 
-## Requirements
-
-- Clang and LLVM
+For better compatibility with RocksDB, ToplingDB does not change the name
+of the RocksDB shared library or the way existing RocksDB users interact
+with it.
 
 ## Contributing
 
-Feedback and pull requests welcome! If a particular feature of RocksDB is
-important to you, please let me know by opening an issue, and I'll
-prioritize it.
+Feedback and pull requests welcome!
+
+## Requirements
+
+- System libraries: `libcurl4-openssl-dev`, `liburing-dev`, `libaio-dev`, `pkg-config`
+- Compression libs (optional, auto-detected): `zlib1g-dev`, `libbz2-dev`, `liblz4-dev`, `libsnappy-dev`, `libzstd-dev`
 
 ## Usage
 
-This binding is statically linked with a specific version of RocksDB. If you
-want to build it yourself, make sure you've also cloned the RocksDB and
-compression submodules:
+This binding dynamically links with `librocksdb.so` (ToplingDB keeps this
+name unchanged to smooth migration of existing code). If you want to build
+it yourself, make sure you've also cloned the submodules:
 
 ```shell
 git submodule update --init --recursive
@@ -33,17 +34,20 @@ cargo build
 cargo test db::test_side_plugin_repo # ToplingDB side_plugin_repo
 ```
 
-**Note**: If the repo is updated later, use UPDATE_REPO=1 as above
+**Note**: After updating the repo, set `UPDATE_REPO=1` to rebuild
+librocksdb: `UPDATE_REPO=1 cargo build`
 
 
 ## Jemalloc
 
-`librocksdb.so` is built **without** jemalloc (`DISABLE_JEMALLOC=1`). Its
-`malloc`/`free` calls resolve at runtime through ELF symbol interposition.
+`librocksdb.so` is built **without** jemalloc (`DISABLE_JEMALLOC=1`).
+Its `malloc`/`free` calls resolve at runtime through ELF symbol
+interposition.
 
-This design avoids the crash that occurs when two jemalloc instances coexist in
-the same process (e.g., if the outer Rust application statically links jemalloc
-via `tikv-jemalloc-sys`). There is no jemalloc Cargo feature on this crate.
+This design avoids the crash that occurs when two jemalloc instances
+coexist in the same process (e.g., if the outer Rust application
+statically links jemalloc via `tikv-jemalloc-sys`). There is no jemalloc
+Cargo feature on this crate.
 
 ### Using jemalloc in your application
 
@@ -62,28 +66,30 @@ use tikv_jemallocator::Jemalloc;
 static GLOBAL: Jemalloc = Jemalloc;
 ```
 
-The `tikv-jemalloc-sys` `unprefixed_malloc_on_supported_platforms` feature is
-recommended so that jemalloc's `malloc`/`free` interpose libc's and are visible
-to `librocksdb.so` at runtime.
+The `tikv-jemalloc-sys` `unprefixed_malloc_on_supported_platforms` feature
+is recommended so that jemalloc's `malloc`/`free` interpose libc's and are
+visible to `librocksdb.so` at runtime.
 
 ## Cargo Features
 
 ### Default features
 
-Default features are empty. No jemalloc, no compression features are enabled by
-default — you must opt in to each explicitly (see below).
+Default features are empty. No jemalloc, no compression features are
+enabled by default — you must opt in to each explicitly.
 
 ### Compression support
 
 Support for [Snappy](https://github.com/google/snappy),
 [LZ4](https://github.com/lz4/lz4), [Zstd](https://github.com/facebook/zstd),
 [Zlib](https://zlib.net), and [Bzip2](http://www.bzip.org) compression
-is enabled through individual crate features. For example:
+is auto-detected when the corresponding development libraries are
+installed on the system. Install the packages and rebuild
+`librocksdb.so`:
 
-```toml
-[dependencies.rocksdb]
-default-features = false
-features = ["lz4", "snappy"]
+```shell
+sudo apt install zlib1g-dev libbz2-dev liblz4-dev libsnappy-dev libzstd-dev
+cargo clean
+cargo build
 ```
 
 ### Top-level features
@@ -94,15 +100,14 @@ features = ["lz4", "snappy"]
 | `multi-threaded-cf` | Allow column family create/drop from multiple threads concurrently |
 | `serde1` | Implement `Serialize`/`Deserialize` for public types |
 | `valgrind` | Enable Valgrind-friendly options |
-| `io-uring` | Enable `io_uring` support in librocksdb (no longer needed, baked into librocksdb.so) |
 
 ### librocksdb-sys features
 
 | Feature | Description |
 |---|---|
-| `static` | **Deprecated.** Static linking is no longer supported, librocksdb is always linked dynamically |
-| `mt_static` | On Windows, use `/MT` (static CRT) instead of `/MD` (dynamic CRT) |
-| `io-uring` | **Deprecated.** `io_uring` is baked into librocksdb.so |
+| `static` | **Deprecated.** Has no effect, linking is always dynamic |
+| `mt_static` | On Windows, use `/MT` (static CRT) instead of `/MD` (dynamic CRT). No effect on Linux |
+| `io-uring` | **Deprecated.** `io_uring` is always enabled in librocksdb.so |
 | `rtti` | Enable RTTI when building librocksdb |
 
 ## Multithreaded ColumnFamily alternation
@@ -114,9 +119,3 @@ the crate feature `multi-threaded-cf`, which makes this binding's
 data structures use `RwLock` by default. Alternatively, you can directly create
 `DBWithThreadMode<MultiThreaded>` without enabling the crate feature.
 
-## Switch between /MT or /MD run time library (Only for Windows)
-
-The feature `mt_static` will request the library to be built with [/MT](https://learn.microsoft.com/en-us/cpp/build/reference/md-mt-ld-use-run-time-library?view=msvc-170)
-flag, which results in library using the static version of the run-time library.
-*This can be useful in case there's a conflict in the dependecy tree between different
-run-time versions.*
