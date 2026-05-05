@@ -2598,6 +2598,9 @@ impl SidePluginRepo {
     pub fn new() -> SidePluginRepo {
         unsafe { Self{inner: ffi::side_plugin_repo_create()} }
     }
+    pub fn from_raw_ptr(raw_ptr: *mut ffi::side_plugin_repo_t) -> SidePluginRepo {
+        Self { inner: raw_ptr }
+    }
     pub fn import_auto_file<P: AsRef<Path>>(&self, conf_file: P) -> Result<(), Error> {
         let cpath = to_cpath(conf_file)?;
         unsafe {
