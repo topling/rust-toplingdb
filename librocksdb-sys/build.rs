@@ -4,6 +4,12 @@ use std::path::PathBuf;
 use std::process::Command;
 
 fn main() {
+    // Determine debug level from cargo profile
+    let debug_level = match env::var("PROFILE").unwrap().as_str() {
+        "release" => "0",
+        _ => "2",
+    };
+
     // Generate Rust FFI bindings from rocksdb C header
     let rocksdb_include =
         env::var("ROCKSDB_INCLUDE_DIR").unwrap_or_else(|_| "rocksdb/include".into());
@@ -25,10 +31,6 @@ fn main() {
         PathBuf::from(dir)
     } else {
         println!("cargo:rerun-if-changed=rocksdb/");
-        let debug_level = match env::var("PROFILE").unwrap().as_str() {
-            "release" => "0",
-            _ => "2",
-        };
         let num_jobs = env::var("CARGO_BUILD_JOBS")
             .ok()
             .and_then(|s| s.parse().ok())
@@ -62,7 +64,7 @@ fn main() {
         let entry = entry.unwrap();
         let name = entry.file_name();
         let name_str = name.to_string_lossy();
-        if name_str.starts_with("librocksdb.so")
+        if name_str.starts_with("librocksdb") && name_str.contains(".so")
             && (entry
                 .file_type()
                 .map(|t| t.is_file() || t.is_symlink())
@@ -83,7 +85,8 @@ fn main() {
         "cargo:rustc-link-search=native={}",
         rocksdb_lib_dir.display()
     );
-    println!("cargo:rustc-link-lib=dylib=rocksdb");
+    let link_lib = if debug_level == "0" { "rocksdb" } else { "rocksdb_debug" };
+    println!("cargo:rustc-link-lib=dylib={link_lib}");
 
     // Link C++ runtime (librocksdb.so is a C++ library)
     let target = env::var("TARGET").unwrap();
