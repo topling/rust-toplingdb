@@ -22,8 +22,9 @@ use crate::{
     ffi_util::{from_cstr, opt_bytes_to_ptr, raw_data, to_cpath, CStrLike},
     ColumnFamily, ColumnFamilyDescriptor, CompactOptions, DBIteratorWithThreadMode,
     DBPinnableSlice, DBRawIteratorWithThreadMode, DBWALIterator, Direction, Error, FlushOptions,
-    IngestExternalFileOptions, IteratorMode, Options, ReadOptions, SnapshotWithThreadMode,
-    WaitForCompactOptions, WriteBatch, WriteOptions, DEFAULT_COLUMN_FAMILY_NAME,
+    IngestExternalFileOptions, IteratorMode, Options, ReadOptions,
+    ReadOptionsScopePinIfNotPinned, SnapshotWithThreadMode, WaitForCompactOptions, WriteBatch,
+    WriteOptions, DEFAULT_COLUMN_FAMILY_NAME,
 };
 
 use crate::ffi_util::CSlice;
@@ -965,6 +966,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         key: K,
         readopts: &ReadOptions,
     ) -> Result<Option<Vec<u8>>, Error> {
+        let _pin = ReadOptionsScopePinIfNotPinned::from(readopts);
         self.get_pinned_opt(key, readopts)
             .map(|x| x.map(|v| v.as_ref().to_vec()))
     }
@@ -985,6 +987,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         key: K,
         readopts: &ReadOptions,
     ) -> Result<Option<Vec<u8>>, Error> {
+        let _pin = ReadOptionsScopePinIfNotPinned::from(readopts);
         self.get_pinned_cf_opt(cf, key, readopts)
             .map(|x| x.map(|v| v.as_ref().to_vec()))
     }
@@ -1102,6 +1105,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         K: AsRef<[u8]>,
         I: IntoIterator<Item = K>,
     {
+        let _pin = ReadOptionsScopePinIfNotPinned::from(readopts);
         let (keys, keys_sizes): (Vec<Box<[u8]>>, Vec<_>) = keys
             .into_iter()
             .map(|k| (Box::from(k.as_ref()), k.as_ref().len()))
@@ -1151,6 +1155,7 @@ impl<T: ThreadMode, D: DBInner> DBCommon<T, D> {
         I: IntoIterator<Item = (&'b W, K)>,
         W: 'b + AsColumnFamilyRef,
     {
+        let _pin = ReadOptionsScopePinIfNotPinned::from(readopts);
         let (cfs_and_keys, keys_sizes): (Vec<(_, Box<[u8]>)>, Vec<_>) = keys
             .into_iter()
             .map(|(cf, key)| ((cf, Box::from(key.as_ref())), key.as_ref().len()))

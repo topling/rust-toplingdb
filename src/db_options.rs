@@ -3946,6 +3946,11 @@ impl ReadOptions {
         }
     }
 
+    // ToplingDB: check if ReadOptions is in a pinning section (zero-copy mode)
+    pub fn is_in_pinning_section(&self) -> bool {
+        unsafe { ffi::rocksdb_readoptions_is_in_pinning_section(self.inner) != 0 }
+    }
+
     pub fn set_async_queue_depth(&mut self, depth: usize) {
         unsafe {
             ffi::rocksdb_readoptions_set_async_queue_depth(self.inner, depth);
@@ -3953,6 +3958,74 @@ impl ReadOptions {
     }
     pub fn get_async_queue_depth(&self) -> usize {
         unsafe { ffi::rocksdb_readoptions_get_async_queue_depth(self.inner) }
+    }
+
+    /// RAII guard that pins SuperVersion for zero-copy on mmap SST
+    /// only if not already in a pinning section.
+    /// Corresponds to C++ `ReadOptions::ReadOptionsScopePinIfNotPinned`.
+    pub fn scope_pin_if_not_pinned(&mut self) -> ReadOptionsScopePinIfNotPinned {
+        Self::do_scope_pin_if_not_pinned(self)
+    }
+
+    /// RAII guard that unconditionally pins SuperVersion for zero-copy on mmap SST.
+    /// Corresponds to C++ `ReadOptions::ScopePin`.
+    pub fn scope_pin(&mut self) -> ReadOptionsScopePin {
+        self.start_pin();
+        ReadOptionsScopePin { inner: self.inner }
+    }
+
+    /// Create a pin guard from a shared reference (interior mutation).
+    /// This is the `const`-cast equivalent of C++ `ReadOptionsScopePinIfNotPinned(const ReadOptions*)`.
+    fn do_scope_pin_if_not_pinned(readopts: &ReadOptions) -> ReadOptionsScopePinIfNotPinned {
+        if readopts.is_in_pinning_section() {
+            ReadOptionsScopePinIfNotPinned { inner: null_mut() }
+        } else {
+            unsafe {
+                ffi::rocksdb_readoptions_start_pin(readopts.inner);
+            }
+            ReadOptionsScopePinIfNotPinned {
+                inner: readopts.inner,
+            }
+        }
+    }
+}
+
+/// RAII guard that pins SuperVersion only if not already pinned.
+/// Corresponds to C++ `ReadOptions::ReadOptionsScopePinIfNotPinned`.
+pub struct ReadOptionsScopePinIfNotPinned {
+    inner: *mut ffi::rocksdb_readoptions_t,
+}
+
+impl ReadOptionsScopePinIfNotPinned {
+    /// Create a pin guard from `&ReadOptions`, using interior mutation.
+    /// If already in a pinning section, the guard is a no-op.
+    /// Otherwise calls `start_pin` and `finish_pin` on drop.
+    pub fn from(readopts: &ReadOptions) -> Self {
+        ReadOptions::do_scope_pin_if_not_pinned(readopts)
+    }
+}
+
+impl Drop for ReadOptionsScopePinIfNotPinned {
+    fn drop(&mut self) {
+        if !self.inner.is_null() {
+            unsafe {
+                ffi::rocksdb_readoptions_finish_pin(self.inner);
+            }
+        }
+    }
+}
+
+/// RAII guard that unconditionally pins SuperVersion for zero-copy on mmap SST.
+/// Corresponds to C++ `ReadOptions::ScopePin`.
+pub struct ReadOptionsScopePin {
+    inner: *mut ffi::rocksdb_readoptions_t,
+}
+
+impl Drop for ReadOptionsScopePin {
+    fn drop(&mut self) {
+        unsafe {
+            ffi::rocksdb_readoptions_finish_pin(self.inner);
+        }
     }
 }
 

@@ -34,9 +34,9 @@ use crate::{
     ffi_util::to_cpath,
     AsColumnFamilyRef, BoundColumnFamily, ColumnFamily, ColumnFamilyDescriptor,
     DBIteratorWithThreadMode, DBPinnableSlice, DBRawIteratorWithThreadMode, Direction, Error,
-    IteratorMode, MultiThreaded, Options, ReadOptions, SingleThreaded, SnapshotWithThreadMode,
-    ThreadMode, Transaction, TransactionDBOptions, TransactionOptions, WriteBatchWithTransaction,
-    WriteOptions, DB, DEFAULT_COLUMN_FAMILY_NAME,
+    IteratorMode, MultiThreaded, Options, ReadOptions, ReadOptionsScopePinIfNotPinned,
+    SingleThreaded, SnapshotWithThreadMode, ThreadMode, Transaction, TransactionDBOptions,
+    TransactionOptions, WriteBatchWithTransaction, WriteOptions, DB, DEFAULT_COLUMN_FAMILY_NAME,
 };
 use ffi::rocksdb_transaction_t;
 use libc::{c_char, c_int, c_void, size_t};
@@ -452,6 +452,7 @@ impl<T: ThreadMode> TransactionDB<T> {
         key: K,
         readopts: &ReadOptions,
     ) -> Result<Option<Vec<u8>>, Error> {
+        let _pin = ReadOptionsScopePinIfNotPinned::from(readopts);
         self.get_pinned_opt(key, readopts)
             .map(|x| x.map(|v| v.as_ref().to_vec()))
     }
@@ -463,6 +464,7 @@ impl<T: ThreadMode> TransactionDB<T> {
         key: K,
         readopts: &ReadOptions,
     ) -> Result<Option<Vec<u8>>, Error> {
+        let _pin = ReadOptionsScopePinIfNotPinned::from(readopts);
         self.get_pinned_cf_opt(cf, key, readopts)
             .map(|x| x.map(|v| v.as_ref().to_vec()))
     }
@@ -544,6 +546,7 @@ impl<T: ThreadMode> TransactionDB<T> {
         K: AsRef<[u8]>,
         I: IntoIterator<Item = K>,
     {
+        let _pin = ReadOptionsScopePinIfNotPinned::from(readopts);
         let (keys, keys_sizes): (Vec<Box<[u8]>>, Vec<_>) = keys
             .into_iter()
             .map(|k| (Box::from(k.as_ref()), k.as_ref().len()))
@@ -593,6 +596,7 @@ impl<T: ThreadMode> TransactionDB<T> {
         I: IntoIterator<Item = (&'b W, K)>,
         W: 'b + AsColumnFamilyRef,
     {
+        let _pin = ReadOptionsScopePinIfNotPinned::from(readopts);
         let (cfs_and_keys, keys_sizes): (Vec<(_, Box<[u8]>)>, Vec<_>) = keys
             .into_iter()
             .map(|(cf, key)| ((cf, Box::from(key.as_ref())), key.as_ref().len()))
