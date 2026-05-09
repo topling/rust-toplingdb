@@ -569,7 +569,7 @@ mod tests {
                 }
             },
             "DBOptions": {
-                "dbo": {
+                "default": {
                     "create_if_missing": true,
                     "create_missing_column_families": true
                 }
@@ -578,7 +578,7 @@ mod tests {
                 "test_db": {
                     "method": "DB::Open",
                     "params": {
-                        "db_options": "$dbo",
+                        "db_options": "$default",
                         "cf_options": "$default",
                         "path": path
                     }

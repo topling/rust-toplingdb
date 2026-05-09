@@ -2760,11 +2760,11 @@ fn test_side_plugin_repo() {
     // which defined in conf, import_auto_file is mainly used for dyn plugin
     repo.import_auto_file(conf).expect("Open SidePluginRepo");
     let mut cfo = repo.get_cfo("default").expect("get_cfo(default)");
-    let mut dbo = repo.get_dbo("dbo").expect("get_dbo(dbo)");
+    let mut dbo = repo.get_dbo("default").expect("get_dbo(default)");
     cfo.set_write_buffer_size(1024*1024); // override it
     dbo.set_max_background_jobs(11);
     repo.put_cfo("default", &cfo); // put again
-    repo.put_dbo("dbo", &dbo);
+    repo.put_dbo("default", &dbo);
     let db = if std::env::var("CARGO_SIDE_PLUGIN_OPEN_CF").is_ok() {
         repo.open_cf().expect("open_cf")
     } else {
