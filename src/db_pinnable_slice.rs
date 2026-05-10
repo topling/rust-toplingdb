@@ -43,8 +43,11 @@ impl<'a> Deref for DBPinnableSlice<'a> {
 
     fn deref(&self) -> &[u8] {
         unsafe {
-            let mut val_len: size_t = 0;
-            let val = ffi::rocksdb_pinnableslice_value(self.ptr, &mut val_len) as *mut u8;
+            // rocksdb_pinnableslice_t inherits from rocksdb_slice_t in C++,
+            // so the first two fields (data, size) have the same layout.
+            let slice = self.ptr as *const ffi::rocksdb_slice_t;
+            let val = (*slice).data as *const u8;
+            let val_len: size_t = (*slice).size;
             slice::from_raw_parts(val, val_len)
         }
     }
