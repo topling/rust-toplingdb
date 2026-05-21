@@ -424,6 +424,60 @@ pub enum IteratorMode<'a> {
 }
 
 impl<'a, D: DBAccess> DBIteratorWithThreadMode<'a, D> {
+    /// Returns `true` if the iterator is positioned at a valid entry.
+    pub fn valid(&self) -> bool {
+        self.raw.valid()
+    }
+
+    /// Returns a slice of the current key.
+    pub fn key(&self) -> Option<&[u8]> {
+        self.raw.key()
+    }
+
+    /// Returns a slice of the current value.
+    /// When the underlying iterator supports lazy loading, the value may not
+    /// be fetched until this method is called.
+    pub fn value(&self) -> Option<&[u8]> {
+        self.raw.value()
+    }
+
+    /// Advances the iterator by one element without reading the current data.
+    /// After calling `advance()`, use `key()` and `value()` to access the new
+    /// current element.
+    pub fn advance(&mut self) {
+        if self.done {
+            return;
+        }
+        if !self.raw.valid() {
+            self.done = true;
+            return;
+        }
+        match self.direction {
+            Direction::Forward => self.raw.next(),
+            Direction::Reverse => self.raw.prev(),
+        }
+    }
+
+    /// Advances the iterator by `n` elements.
+    /// Returns the number of elements actually advanced (may be less than `n`
+    /// if the iterator reached the end).
+    pub fn advance_by(&mut self, n: usize) -> usize {
+        for i in 0..n {
+            if self.done {
+                return i;
+            }
+            if !self.raw.valid() {
+                self.done = true;
+                return i;
+            }
+            match self.direction {
+                Direction::Forward => self.raw.next(),
+                Direction::Reverse => self.raw.prev(),
+            }
+        }
+        n
+    }
+
     pub(crate) fn new(db: &D, readopts: ReadOptions, mode: IteratorMode) -> Self {
         Self::from_raw(DBRawIteratorWithThreadMode::new(db, readopts), mode)
     }
