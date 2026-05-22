@@ -405,7 +405,6 @@ pub type DBIterator<'a> = DBIteratorWithThreadMode<'a, DB>;
 pub struct DBIteratorWithThreadMode<'a, D: DBAccess> {
     raw: DBRawIteratorWithThreadMode<'a, D>,
     direction: Direction,
-    done: bool,
 }
 
 #[derive(Copy, Clone)]
@@ -445,13 +444,6 @@ impl<'a, D: DBAccess> DBIteratorWithThreadMode<'a, D> {
     /// After calling `advance()`, use `key()` and `value()` to access the new
     /// current element.
     pub fn advance(&mut self) {
-        if self.done {
-            return;
-        }
-        if !self.raw.valid() {
-            self.done = true;
-            return;
-        }
         match self.direction {
             Direction::Forward => self.raw.next(),
             Direction::Reverse => self.raw.prev(),
@@ -463,11 +455,7 @@ impl<'a, D: DBAccess> DBIteratorWithThreadMode<'a, D> {
     /// if the iterator reached the end).
     pub fn advance_by(&mut self, n: usize) -> usize {
         for i in 0..n {
-            if self.done {
-                return i;
-            }
             if !self.raw.valid() {
-                self.done = true;
                 return i;
             }
             match self.direction {
@@ -498,14 +486,12 @@ impl<'a, D: DBAccess> DBIteratorWithThreadMode<'a, D> {
         let mut rv = DBIteratorWithThreadMode {
             raw,
             direction: Direction::Forward, // blown away by set_mode()
-            done: false,
         };
         rv.set_mode(mode);
         rv
     }
 
     pub fn set_mode(&mut self, mode: IteratorMode) {
-        self.done = false;
         self.direction = match mode {
             IteratorMode::Start => {
                 self.raw.seek_to_first();
@@ -531,9 +517,7 @@ impl<'a, D: DBAccess> Iterator for DBIteratorWithThreadMode<'a, D> {
     type Item = Result<KVBytes, Error>;
 
     fn next(&mut self) -> Option<Result<KVBytes, Error>> {
-        if self.done {
-            None
-        } else if let Some((key, value)) = self.raw.item() {
+        if let Some((key, value)) = self.raw.item() {
             let item = (Box::from(key), Box::from(value));
             match self.direction {
                 Direction::Forward => self.raw.next(),
@@ -541,8 +525,7 @@ impl<'a, D: DBAccess> Iterator for DBIteratorWithThreadMode<'a, D> {
             }
             Some(Ok(item))
         } else {
-            self.done = true;
-            self.raw.status().err().map(Result::Err)
+            None
         }
     }
 }
